@@ -79,3 +79,20 @@ Never print or log:
 
 Also avoid using `print()` in runtime code. The current CLI pattern is Rich
 `Console`, and non-CLI modules should remain output-free.
+
+### Credential Persistence Exception
+
+`educoder login` is the only command that may persist credential values. Its
+primary result is a saved login state containing the newly issued `EDUCODER_ZZUD`,
+`EDUCODER_AUTOLOGIN`, and `EDUCODER_SESSION` equivalents required by the
+authenticated CLI workflow.
+
+This exception is narrow:
+
+- It applies only to writing the credential file from the explicit `login`
+  command, not errors, debug output, tests with real values, or any other
+  command.
+- The command must not print the password, saved token values, request body, full
+  headers, `Cookie`, or `Pc-Authorization`.
+- README examples should prefer password prompting over `--password <value>` so
+  users do not put passwords in shell history by default.

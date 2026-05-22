@@ -6,12 +6,13 @@
 
 ## Overview
 
-This project currently has no database layer, ORM, migrations, local cache, or
-filesystem persistence. It is a stateless CLI wrapper around remote Educoder API
-calls.
+This project currently has no database layer, ORM, migrations, or general local
+cache. It is a CLI wrapper around remote Educoder API calls with one deliberate
+filesystem persistence boundary: saved login state.
 
-The only persisted project data is source, tests, configuration, and package
-metadata. Runtime state lives in memory on `EduCoderClient`:
+Persisted project data is source, tests, configuration, package metadata, and
+the user credential file managed by `src/educoder_cli/credentials.py`. Runtime
+workflow state still lives in memory on `EduCoderClient`:
 
 - Credential-derived request state: `zzud`, `cookie`, `pc_auth`.
 - Selected Educoder context: `course_identifier`, `homework_common_id`,
@@ -20,6 +21,24 @@ metadata. Runtime state lives in memory on `EduCoderClient`:
 Reference: `src/educoder_cli/client.py` initializes those fields in
 `EduCoderClient.__init__()` and mutates them through selection methods such as
 `select_course()` and `select_homework()`.
+
+## Credential Persistence Contract
+
+Saved login state is intentionally narrow:
+
+- Store only `zzud`, `autologin_trustie`, and `_educoder_session` equivalents.
+- Do not store passwords, submitted code, request bodies, full headers, raw API
+  payloads, or selected course/homework/game context.
+- Use the user config directory, not the repository:
+  - Linux/XDG: `$XDG_CONFIG_HOME/educoder-cli/credentials.json` when set.
+  - Otherwise: `~/.config/educoder-cli/credentials.json` on Linux-like systems.
+  - macOS and Windows may use their platform user config roots.
+- Create the config directory with `0700` permissions and the credentials file
+  with `0600` permissions where the platform supports POSIX modes.
+- Authenticated commands resolve credentials in this priority order: explicit CLI
+  options, environment variables, saved login state.
+- A corrupt or incomplete saved credential file is a local error; ask the user to
+  run `educoder login` again rather than silently ignoring it.
 
 ---
 
@@ -46,14 +65,15 @@ is stable enough to model.
 ## Migrations
 
 There are no migrations. Do not introduce Alembic, SQLAlchemy, SQLite files,
-JSON cache files, or ad hoc state directories for normal CLI behavior.
+general JSON caches, or ad hoc state directories for normal CLI behavior.
 
-If a future feature truly needs local persistence, create a separate design task
-first. That design should specify:
+If a future feature needs additional local persistence beyond saved login state,
+create a separate design task first. That design should specify:
 
 - What user data is stored.
 - Where it is stored.
-- How credentials and submitted code are kept out of local persistence.
+- How passwords, credentials unrelated to the feature, submitted code, request
+  bodies, and raw API payloads are kept out of local persistence.
 - How tests isolate the storage backend.
 
 ---
@@ -74,9 +94,11 @@ tables. For remote API payloads:
 
 ## Common Mistakes
 
-- Do not add persistence as a workaround for client context. The current pattern
-  is explicit selection followed by in-memory fields on `EduCoderClient`.
-- Do not store cookies, session values, `zzud`, request bodies, or submitted code
-  in logs or cache files.
+- Do not add persistence as a workaround for selected course/homework/game
+  context. The current pattern is explicit selection followed by in-memory fields
+  on `EduCoderClient`.
+- Do not store passwords, request bodies, submitted code, or raw API payloads in
+  logs or cache files.
+- Do not print or log saved credential values while loading them.
 - Do not introduce a database abstraction around `httpx`; remote API methods
   should stay on `EduCoderClient` until the package grows a real storage layer.

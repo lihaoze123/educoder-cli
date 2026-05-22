@@ -324,6 +324,30 @@ def test_task_json_outputs_current_task_summary() -> None:
     assert data["task"]["game"]["status_text"] == "通过"
 
 
+def test_task_text_renders_nullable_test_set_fields() -> None:
+    FakeClient.task_detail = make_task_detail(status=0)
+    FakeClient.task_detail.test_sets = [
+        ModelTestSet(
+            result=None,
+            output="expected",
+            actual_output=None,
+            is_public=True,
+            ts_time=None,
+            ts_mem=None,
+        )
+    ]
+
+    result = runner.invoke(
+        cli.app,
+        ["task", "--course", "py", "--homework", "42"],
+        env=AUTH_ENV,
+    )
+
+    assert result.exit_code == 0
+    assert "Test Sets" in result.stdout
+    assert "expected" in result.stdout
+
+
 def test_code_outputs_remote_content_to_stdout() -> None:
     result = runner.invoke(
         cli.app,

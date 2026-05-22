@@ -137,24 +137,24 @@ class Challenge:
 
 @dataclass
 class TestSet:
-    result: bool = False
-    output: str = ""
-    actual_output: str = ""
-    compile_success: int = 0
+    result: bool | None = None
+    output: str | None = ""
+    actual_output: str | None = ""
+    compile_success: int | None = None
     is_public: bool = False
-    ts_time: float = 0.0
-    ts_mem: float = 0.0
+    ts_time: float | None = None
+    ts_mem: float | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Self:
         return cls(
-            result=data.get("result", False),
-            output=data.get("output", ""),
-            actual_output=data.get("actual_output", ""),
-            compile_success=data.get("compile_success", 0),
+            result=data.get("result"),
+            output=data.get("output"),
+            actual_output=data.get("actual_output"),
+            compile_success=data.get("compile_success"),
             is_public=data.get("is_public", False),
-            ts_time=data.get("ts_time", 0.0),
-            ts_mem=data.get("ts_mem", 0.0),
+            ts_time=data.get("ts_time"),
+            ts_mem=data.get("ts_mem"),
         )
 
 

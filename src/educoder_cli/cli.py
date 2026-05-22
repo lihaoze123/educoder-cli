@@ -166,10 +166,22 @@ def _format_progress(homework: HomeworkCommon) -> str:
     return f"{homework.finished_challenge_count}/{homework.challenge_count}"
 
 
-def _truncate(value: str, limit: int = 600) -> str:
+def _format_optional(value: object | None) -> str:
+    return "" if value is None else str(value)
+
+
+def _truncate(value: str | None, limit: int = 600) -> str:
+    if value is None:
+        return ""
     if len(value) <= limit:
         return value
     return value[: limit - 1] + "…"
+
+
+def _test_result_label(value: bool | None) -> str:
+    if value is None:
+        return ""
+    return "pass" if value else "fail"
 
 
 def _game_status(value: int) -> str:
@@ -357,10 +369,10 @@ def _render_test_sets(test_sets: list[TestSet]) -> None:
     for index, test_set in enumerate(test_sets, start=1):
         table.add_row(
             str(index),
-            "pass" if test_set.result else "fail",
+            _test_result_label(test_set.result),
             "yes" if test_set.is_public else "no",
-            str(test_set.ts_time),
-            str(test_set.ts_mem),
+            _format_optional(test_set.ts_time),
+            _format_optional(test_set.ts_mem),
             escape(_truncate(test_set.output, 120)),
             escape(_truncate(test_set.actual_output, 120)),
         )

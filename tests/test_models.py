@@ -1,4 +1,5 @@
 from educoder_cli.models import Course, HomeworkCommon, LoginResult, TaskDetail
+from educoder_cli.models import TestSet as ModelTestSet
 
 
 def test_login_result_from_dict_uses_response_login_as_zzud() -> None:
@@ -70,3 +71,25 @@ def test_task_detail_from_dict_parses_nested_models() -> None:
     assert detail.shixun_environments[0].shixun_environment_id == 40
     assert detail.homework_common_id == 50
     assert detail.next_game == "game-2"
+
+
+def test_test_set_from_dict_preserves_nullable_execution_fields() -> None:
+    test_set = ModelTestSet.from_dict(
+        {
+            "result": None,
+            "output": "expected",
+            "actual_output": None,
+            "compile_success": None,
+            "is_public": True,
+            "ts_time": None,
+            "ts_mem": None,
+        }
+    )
+
+    assert test_set.result is None
+    assert test_set.output == "expected"
+    assert test_set.actual_output is None
+    assert test_set.compile_success is None
+    assert test_set.is_public is True
+    assert test_set.ts_time is None
+    assert test_set.ts_mem is None

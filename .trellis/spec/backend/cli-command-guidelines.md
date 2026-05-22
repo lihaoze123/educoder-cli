@@ -238,3 +238,97 @@ def select_homework(...):
     self.game_identifier = None
     self._resolve_game_identifier()
 ```
+
+## Scenario: Nullable Test Set Execution Fields
+
+### 1. Scope / Trigger
+
+Use this contract when changing `TaskDetail`, `TestSet`, `task`, `code`, or
+`submit` rendering/output around Educoder test-set data.
+
+### 2. Signatures
+
+Educoder task detail responses may include test-set entries like:
+
+```json
+{
+  "result": null,
+  "output": "expected output",
+  "actual_output": null,
+  "compile_success": null,
+  "is_public": true,
+  "ts_time": null,
+  "ts_mem": null
+}
+```
+
+The local model must allow nullable execution fields:
+
+```python
+TestSet.result: bool | None
+TestSet.output: str | None
+TestSet.actual_output: str | None
+TestSet.compile_success: int | None
+TestSet.ts_time: float | None
+TestSet.ts_mem: float | None
+```
+
+### 3. Contracts
+
+- Preserve `None` for API fields whose meaning is "not evaluated yet" or
+  "unknown"; do not coerce them to failure, zero, or the literal string
+  `"None"`.
+- Text-mode Rich tables render nullable cells as blank strings.
+- JSON output preserves `None` as JSON `null` for machine consumers.
+- Keep this normalization at model/render boundaries. Do not catch broad
+  exceptions around rendering to hide payload contract bugs.
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected behavior |
+|-----------|-------------------|
+| `actual_output` is `null` | Text rendering shows a blank Actual cell and exits `0` |
+| `result` is `null` | Text rendering shows a blank Result cell, not `fail` |
+| `ts_time` or `ts_mem` is `null` | Text rendering shows blank Time/Memory cells |
+| `output` is present | Expected output is still rendered and truncated safely |
+| `--json` output requested | Nullable fields remain `null` in JSON |
+
+### 5. Good/Base/Bad Cases
+
+- Good: an unstarted task with expected output but no actual output displays the
+  task table and test-set table without traceback.
+- Base: a completed test set with boolean result and numeric runtime keeps the
+  existing `pass`/`fail`, time, memory, expected, and actual output display.
+- Bad: passing nullable fields directly to helpers that call `len()` or other
+  string-only operations.
+- Bad: converting `None` result to `False`, which incorrectly labels an
+  unstarted case as failed.
+
+### 6. Tests Required
+
+- Model parser test proving nullable test-set execution fields remain `None`.
+- CLI text rendering test proving `actual_output=None`, `result=None`,
+  `ts_time=None`, and `ts_mem=None` do not crash and render the expected output.
+- Keep CLI tests on fake clients; live Educoder checks can verify manually but
+  must not be required in the test suite.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+escape(_truncate(test_set.actual_output, 120))
+str(test_set.ts_time)
+"pass" if test_set.result else "fail"
+```
+
+This crashes on `actual_output=None`, prints `"None"` for runtime fields, and
+mislabels unknown results as failures.
+
+#### Correct
+
+```python
+_test_result_label(test_set.result)
+_format_optional(test_set.ts_time)
+escape(_truncate(test_set.actual_output, 120))
+```

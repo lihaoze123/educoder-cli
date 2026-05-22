@@ -2,6 +2,14 @@
 
 一个封装头歌 / Educoder API 的现代 Python CLI 客户端工具，支持获取课堂列表、获取实验列表、手动提交代码，以及后续扩展 LLM 辅助解题。
 
+## 安装
+
+可以直接通过 `uv tool install` 从 GitHub 安装：
+
+```bash
+uv tool install git+https://github.com/lihaoze123/educoder-cli
+```
+
 ## 开发环境
 
 本项目使用 `uv` 管理环境和依赖，使用 `ruff` 统一 lint/format，使用 `ty` 做类型检查。

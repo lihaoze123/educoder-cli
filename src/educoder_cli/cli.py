@@ -9,8 +9,9 @@ from rich.table import Table
 
 from educoder_cli import __version__
 from educoder_cli.client import AmbiguousSelectionError, EduCoderClient
+from educoder_cli.credentials import StoredCredentials, load_credentials, save_credentials
 from educoder_cli.errors import EduCoderAPIError
-from educoder_cli.models import Course, HomeworkCommon, TaskDetail, TestSet
+from educoder_cli.models import Course, HomeworkCommon, LoginResult, TaskDetail, TestSet
 
 app = typer.Typer(no_args_is_help=True, help="Educoder / 头歌 command line client.")
 console = Console()
@@ -45,6 +46,19 @@ HomeworkOption = Annotated[
     str,
     typer.Option("--homework", help="Homework ID or name fragment."),
 ]
+LoginOption = Annotated[
+    str,
+    typer.Option("--login", help="Educoder username, phone, or email."),
+]
+PasswordOption = Annotated[
+    str,
+    typer.Option(
+        "--password",
+        prompt=True,
+        hide_input=True,
+        help="Educoder password. Prompts securely when omitted.",
+    ),
+]
 
 
 def _require_credentials(
@@ -52,6 +66,18 @@ def _require_credentials(
     autologin: str | None,
     session: str | None,
 ) -> tuple[str, str, str]:
+    if not zzud or not autologin or not session:
+        try:
+            stored_credentials = load_credentials()
+        except ValueError as exc:
+            _print_error(exc)
+            raise typer.Exit(1) from exc
+
+        if stored_credentials is not None:
+            zzud = zzud or stored_credentials.zzud
+            autologin = autologin or stored_credentials.autologin
+            session = session or stored_credentials.session
+
     missing = []
     if not zzud:
         missing.append("EDUCODER_ZZUD")
@@ -62,6 +88,7 @@ def _require_credentials(
 
     if missing:
         err_console.print("[red]Missing required credentials:[/red] " + ", ".join(missing))
+        err_console.print("Run [bold]educoder login[/bold] or set credential env vars/options.")
         raise typer.Exit(2)
 
     assert zzud is not None
@@ -166,6 +193,21 @@ def _course_to_dict(course: Course) -> dict[str, object]:
         "course_members_count": course.course_members_count,
         "is_end": course.is_end,
         "is_accessible": course.is_accessible,
+    }
+
+
+def _login_to_dict(result: LoginResult, credentials_path: Path) -> dict[str, object]:
+    return {
+        "user": {
+            "user_id": result.user_id,
+            "login": result.login,
+            "name": result.name,
+            "identity": result.identity,
+            "school": result.school,
+            "grade": result.grade,
+        },
+        "saved": True,
+        "credentials_path": str(credentials_path),
     }
 
 
@@ -325,6 +367,12 @@ def _render_test_sets(test_sets: list[TestSet]) -> None:
     console.print(table)
 
 
+def _render_login(result: LoginResult, credentials_path: Path) -> None:
+    label = result.name or result.login or result.user_id
+    console.print(f"[green]Logged in as {escape(label)}.[/green]")
+    console.print(f"Saved login state to {escape(str(credentials_path))}.")
+
+
 def _render_submission(result: dict[str, Any]) -> None:
     passed = result.get("passed")
     if passed is None:
@@ -367,6 +415,56 @@ def _write_output_file(path: Path, content: str, *, force: bool) -> None:
 def version() -> None:
     """Show the installed educoder-cli version."""
     console.print(f"educoder-cli {__version__}")
+
+
+@app.command()
+def login(
+    account: LoginOption,
+    password: PasswordOption,
+    json_output: JsonOption = False,
+) -> None:
+    """Log in and persist credentials for authenticated commands."""
+    try:
+        with EduCoderClient() as client:
+            result = client.login(account, password)
+        credentials_path = save_credentials(StoredCredentials.from_login_result(result))
+    except (EduCoderAPIError, ValueError) as exc:
+        _handle_cli_error(exc)
+
+    if json_output:
+        _print_json(_login_to_dict(result, credentials_path))
+        return
+
+    _render_login(result, credentials_path)
+
+
+@app.command()
+def status(
+    zzud: ZzudOption = None,
+    autologin: AutologinOption = None,
+    session: SessionOption = None,
+    json_output: JsonOption = False,
+) -> None:
+    """Check whether the current Educoder credentials are usable."""
+    auth = _require_credentials(zzud, autologin, session)
+
+    try:
+        with EduCoderClient(*auth) as client:
+            courses_ = client.get_courses(page=1, limit=1)
+    except EduCoderAPIError as exc:
+        _handle_cli_error(exc)
+
+    if json_output:
+        _print_json(
+            {
+                "authenticated": True,
+                "probe": "courses",
+                "courses_checked": len(courses_),
+            }
+        )
+        return
+
+    console.print("[green]Authenticated.[/green]")
 
 
 @app.command()

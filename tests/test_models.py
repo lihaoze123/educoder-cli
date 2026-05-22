@@ -1,4 +1,25 @@
-from educoder_cli.models import Course, HomeworkCommon, TaskDetail
+from educoder_cli.models import Course, HomeworkCommon, LoginResult, TaskDetail
+
+
+def test_login_result_from_dict_uses_response_login_as_zzud() -> None:
+    result = LoginResult.from_dict(
+        {
+            "user_id": 1,
+            "login": "alice",
+            "name": "Alice",
+            "identity": "student",
+            "school": "CS",
+            "grade": 100,
+        },
+        fallback_zzud="phone-or-email",
+        autologin="auto-token",
+        session="session-token",
+    )
+
+    assert result.user_id == "1"
+    assert result.zzud == "alice"
+    assert result.autologin == "auto-token"
+    assert result.session == "session-token"
 
 
 def test_course_from_dict_uses_defaults() -> None:

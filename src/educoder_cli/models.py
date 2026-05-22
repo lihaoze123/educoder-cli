@@ -3,6 +3,45 @@ from dataclasses import dataclass, field
 from typing import Any, Self
 
 
+def _string_or_empty(value: Any) -> str:
+    return "" if value is None else str(value)
+
+
+@dataclass
+class LoginResult:
+    user_id: str = ""
+    login: str = ""
+    name: str = ""
+    identity: str = ""
+    school: str = ""
+    grade: str = ""
+    zzud: str = ""
+    autologin: str = ""
+    session: str = ""
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: Mapping[str, Any],
+        *,
+        fallback_zzud: str,
+        autologin: str,
+        session: str,
+    ) -> Self:
+        login = _string_or_empty(data.get("login"))
+        return cls(
+            user_id=_string_or_empty(data.get("user_id")),
+            login=login,
+            name=_string_or_empty(data.get("name")),
+            identity=_string_or_empty(data.get("identity")),
+            school=_string_or_empty(data.get("school")),
+            grade=_string_or_empty(data.get("grade")),
+            zzud=login or fallback_zzud,
+            autologin=autologin,
+            session=session,
+        )
+
+
 @dataclass
 class Course:
     id: int

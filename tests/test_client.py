@@ -1,8 +1,10 @@
+import json
+
 import httpx
 import pytest
 
 from educoder_cli.client import AmbiguousSelectionError, EduCoderClient
-from educoder_cli.errors import SessionExpiredError, SignatureError
+from educoder_cli.errors import EduCoderAPIError, SessionExpiredError, SignatureError
 from educoder_cli.models import Challenge, Game, TaskDetail, User
 
 
@@ -68,6 +70,68 @@ def test_request_raises_signature_error_on_api_status() -> None:
 
     with pytest.raises(SignatureError):
         client.get_courses()
+
+
+def test_login_posts_credentials_and_extracts_cookies() -> None:
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["authorization"] = request.headers["Pc-Authorization"]
+        seen["has_cookie"] = "Cookie" in request.headers
+        seen["origin"] = request.headers["Origin"]
+        seen["referer"] = request.headers["Referer"]
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            headers=[
+                ("set-cookie", "_educoder_session=session-token; Domain=.educoder.net; Path=/"),
+                (
+                    "set-cookie",
+                    "autologin_trustie=auto-token; Domain=.educoder.net; Path=/",
+                ),
+            ],
+            json={
+                "user_id": 1,
+                "login": "alice",
+                "name": "Alice",
+                "identity": "student",
+                "school": "CS",
+                "grade": 100,
+            },
+        )
+
+    client = make_client(handler)
+
+    result = client.login("phone-or-email", "secret")
+
+    assert seen["url"].endswith("/accounts/login.json")
+    assert seen["authorization"] == "null"
+    assert seen["has_cookie"] is False
+    assert seen["origin"] == "https://www.educoder.net"
+    assert seen["referer"] == "https://www.educoder.net/login"
+    assert seen["body"] == {
+        "login": "phone-or-email",
+        "password": "secret",
+        "autologin": True,
+        "tl": None,
+        "source": None,
+    }
+    assert result.zzud == "alice"
+    assert result.autologin == "auto-token"
+    assert result.session == "session-token"
+    assert client.pc_auth == "session-token"
+    assert "_educoder_session=session-token" in client.cookie
+
+
+def test_login_raises_api_error_on_invalid_credentials() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"status": -3, "message": "bad"})
+
+    client = make_client(handler)
+
+    with pytest.raises(EduCoderAPIError, match="用户名或密码错误"):
+        client.login("alice", "wrong")
 
 
 def test_select_course_raises_on_ambiguous_name_match() -> None:

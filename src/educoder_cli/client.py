@@ -13,7 +13,7 @@ from educoder_cli.errors import (
     SessionExpiredError,
     SignatureError,
 )
-from educoder_cli.models import Course, HomeworkCommon, TaskDetail
+from educoder_cli.models import Course, HomeworkCommon, LoginResult, TaskDetail
 from educoder_cli.signature import gen_signature
 
 JsonObject = dict[str, Any]
@@ -56,14 +56,16 @@ class EduCoderClient:
 
     def __init__(
         self,
-        zzud: str,
-        cookie_autologin: str,
-        cookie_session: str,
+        zzud: str = "",
+        cookie_autologin: str = "",
+        cookie_session: str = "",
         *,
         http_client: httpx.Client | None = None,
     ) -> None:
         self.zzud = zzud
-        self.cookie = f"autologin_trustie={cookie_autologin}; _educoder_session={cookie_session}"
+        self.cookie_autologin = cookie_autologin
+        self.cookie_session = cookie_session
+        self.cookie = self._format_cookie(cookie_autologin, cookie_session)
         self.pc_auth = cookie_session
         self._client = http_client or httpx.Client(timeout=30)
         self._owns_client = http_client is None
@@ -89,28 +91,57 @@ class EduCoderClient:
     ) -> None:
         self.close()
 
-    def _headers(self, method: str) -> dict[str, str]:
+    @staticmethod
+    def _format_cookie(cookie_autologin: str, cookie_session: str) -> str:
+        values = []
+        if cookie_autologin:
+            values.append(f"autologin_trustie={cookie_autologin}")
+        if cookie_session:
+            values.append(f"_educoder_session={cookie_session}")
+        return "; ".join(values)
+
+    def _headers(
+        self,
+        method: str,
+        *,
+        pc_auth: str | None = None,
+        include_cookie: bool = True,
+    ) -> dict[str, str]:
         ts, sig = gen_signature(method)
-        return {
+        headers = {
             "X-EDU-Type": "pc",
             "X-EDU-Timestamp": str(ts),
             "X-EDU-Signature": sig,
-            "Pc-Authorization": self.pc_auth,
-            "Cookie": self.cookie,
+            "Pc-Authorization": self.pc_auth if pc_auth is None else pc_auth,
             "Accept": "application/json",
         }
+        if include_cookie and self.cookie:
+            headers["Cookie"] = self.cookie
+        return headers
 
-    def _request(
-        self, method: str, endpoint: str, *, json_data: JsonObject | None = None
-    ) -> JsonObject:
+    def _request_with_response(
+        self,
+        method: str,
+        endpoint: str,
+        *,
+        json_data: JsonObject | None = None,
+        headers: dict[str, str] | None = None,
+        pc_auth: str | None = None,
+        include_cookie: bool = True,
+    ) -> tuple[JsonObject, httpx.Response]:
         url = f"{self.BASE}{endpoint}"
-        headers = self._headers(method)
+        request_headers = self._headers(method, pc_auth=pc_auth, include_cookie=include_cookie)
+        if headers:
+            request_headers.update(headers)
 
-        if json_data is not None:
-            headers["Content-Type"] = "application/json; charset=utf-8"
-            resp = self._client.request(method, url, headers=headers, json=json_data)
-        else:
-            resp = self._client.request(method, url, headers=headers)
+        try:
+            if json_data is not None:
+                request_headers["Content-Type"] = "application/json; charset=utf-8"
+                resp = self._client.request(method, url, headers=request_headers, json=json_data)
+            else:
+                resp = self._client.request(method, url, headers=request_headers)
+        except httpx.HTTPError as exc:
+            raise EduCoderAPIError("网络请求失败，请稍后重试") from exc
 
         if resp.status_code == 401:
             raise SessionExpiredError("Cookie 已过期，请重新从浏览器获取", status_code=401)
@@ -126,6 +157,12 @@ class EduCoderClient:
         if data.get("status") == -102:
             raise SignatureError("签名验证失败，请检查 AK/SK 或时间戳")
 
+        return data, resp
+
+    def _request(
+        self, method: str, endpoint: str, *, json_data: JsonObject | None = None
+    ) -> JsonObject:
+        data, _resp = self._request_with_response(method, endpoint, json_data=json_data)
         return data
 
     def _get(self, endpoint: str) -> JsonObject:
@@ -133,6 +170,61 @@ class EduCoderClient:
 
     def _post(self, endpoint: str, json_data: JsonObject) -> JsonObject:
         return self._request("POST", endpoint, json_data=json_data)
+
+    def login(self, login: str, password: str, *, autologin: bool = True) -> LoginResult:
+        data, resp = self._request_with_response(
+            "POST",
+            "/accounts/login.json",
+            json_data={
+                "login": login,
+                "password": password,
+                "autologin": autologin,
+                "tl": None,
+                "source": None,
+            },
+            headers={
+                "Origin": "https://www.educoder.net",
+                "Referer": "https://www.educoder.net/login",
+            },
+            pc_auth="null",
+            include_cookie=False,
+        )
+
+        status = data.get("status")
+        if status == -3:
+            raise EduCoderAPIError("用户名或密码错误")
+        if status == -4:
+            raise EduCoderAPIError("登录失败：账号需要绑定手机号或邮箱")
+        if status == -5:
+            message = data.get("message") or "未知错误"
+            raise EduCoderAPIError(f"登录失败: {message}")
+        if isinstance(status, int) and status < 0:
+            message = data.get("message") or "未知错误"
+            raise EduCoderAPIError(f"登录失败 (status={status}): {message}")
+
+        session = resp.cookies.get("_educoder_session") or self._client.cookies.get(
+            "_educoder_session", ""
+        )
+        cookie_autologin = resp.cookies.get("autologin_trustie") or self._client.cookies.get(
+            "autologin_trustie", ""
+        )
+        if not session:
+            raise EduCoderAPIError("登录失败：响应中缺少 _educoder_session")
+        if not cookie_autologin:
+            raise EduCoderAPIError("登录失败：响应中缺少 autologin_trustie")
+
+        result = LoginResult.from_dict(
+            data,
+            fallback_zzud=login,
+            autologin=cookie_autologin,
+            session=session,
+        )
+        self.zzud = result.zzud
+        self.cookie_autologin = result.autologin
+        self.cookie_session = result.session
+        self.cookie = self._format_cookie(result.autologin, result.session)
+        self.pc_auth = result.session
+        return result
 
     def get_courses(self, page: int = 1, limit: int = 20) -> list[Course]:
         data = self._get(

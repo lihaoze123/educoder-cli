@@ -19,7 +19,25 @@ uv run educoder --help
 uv run educoder version
 ```
 
-列出课程需要提供浏览器 Cookie 中的认证信息：
+用账号密码登录。密码会安全提示输入，登录成功后会保存登录态供后续命令使用：
+
+```bash
+uv run educoder login --login <手机号/用户名/邮箱>
+```
+
+检查当前保存的认证信息是否可用：
+
+```bash
+uv run educoder status
+```
+
+登录后可直接列出课程：
+
+```bash
+uv run educoder courses
+```
+
+也可以通过环境变量提供或覆盖认证信息：
 
 ```bash
 EDUCODER_ZZUD=... \

@@ -6,12 +6,14 @@ import pytest
 from typer.testing import CliRunner
 
 from educoder_cli import cli
+from educoder_cli.credentials import StoredCredentials
 from educoder_cli.errors import EduCoderAPIError
 from educoder_cli.models import (
     Challenge,
     Course,
     Game,
     HomeworkCommon,
+    LoginResult,
     TaskDetail,
     User,
 )
@@ -71,10 +73,25 @@ class FakeClient:
         "passed": True,
         "test_sets": make_task_detail().test_sets,
     }
+    login_result: ClassVar[LoginResult] = LoginResult(
+        user_id="30",
+        login="alice",
+        name="Alice",
+        identity="student",
+        school="CS",
+        grade="100",
+        zzud="alice",
+        autologin="auto-token",
+        session="session-token",
+    )
     raise_api_error: ClassVar[bool] = False
 
-    def __init__(self, zzud: str, autologin: str, session: str) -> None:
+    def __init__(self, zzud: str = "", autologin: str = "", session: str = "") -> None:
         self.auth = (zzud, autologin, session)
+        self.login_account: str | None = None
+        self.login_password: str | None = None
+        self.courses_page: int | None = None
+        self.courses_limit: int | None = None
         self.course_selector: str | int | None = None
         self.homework_selector: str | int | None = None
         self.answer_code_path: str | None = None
@@ -90,7 +107,18 @@ class FakeClient:
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         return None
 
+    def login(self, login: str, password: str) -> LoginResult:
+        self.login_account = login
+        self.login_password = password
+        if self.raise_api_error:
+            raise EduCoderAPIError("boom")
+        return self.login_result
+
     def get_courses(self, page: int = 1, limit: int = 20) -> list[Course]:
+        self.courses_page = page
+        self.courses_limit = limit
+        if self.raise_api_error:
+            raise EduCoderAPIError("boom")
         return [self.course]
 
     def select_course(self, name_or_id: str | int) -> Course:
@@ -138,8 +166,140 @@ def fake_client(monkeypatch: pytest.MonkeyPatch) -> None:
         "passed": True,
         "test_sets": make_task_detail().test_sets,
     }
+    FakeClient.login_result = LoginResult(
+        user_id="30",
+        login="alice",
+        name="Alice",
+        identity="student",
+        school="CS",
+        grade="100",
+        zzud="alice",
+        autologin="auto-token",
+        session="session-token",
+    )
     FakeClient.raise_api_error = False
     monkeypatch.setattr(cli, "EduCoderClient", FakeClient)
+    monkeypatch.setattr(cli, "load_credentials", lambda: None)
+    monkeypatch.setattr(
+        cli,
+        "save_credentials",
+        lambda _credentials: Path("/tmp/educoder-cli/credentials.json"),
+    )
+
+
+def test_login_json_persists_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    saved_credentials = []
+
+    def fake_save(credentials: StoredCredentials) -> Path:
+        saved_credentials.append(credentials)
+        return Path("/tmp/educoder-cli/credentials.json")
+
+    monkeypatch.setattr(cli, "save_credentials", fake_save)
+
+    result = runner.invoke(
+        cli.app,
+        ["login", "--login", "alice", "--password", "secret", "--json"],
+    )
+
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["user"]["login"] == "alice"
+    assert data["saved"] is True
+    assert data["credentials_path"] == "/tmp/educoder-cli/credentials.json"
+    client = FakeClient.instances[-1]
+    assert client.auth == ("", "", "")
+    assert client.login_account == "alice"
+    assert client.login_password == "secret"
+    assert saved_credentials == [StoredCredentials("alice", "auto-token", "session-token")]
+
+
+def test_login_text_reports_saved_state_without_secrets() -> None:
+    result = runner.invoke(
+        cli.app,
+        ["login", "--login", "alice", "--password", "secret"],
+    )
+
+    assert result.exit_code == 0
+    assert "Logged in as Alice" in result.stdout
+    assert "Saved login state" in result.stdout
+    assert "session-token" not in result.stdout
+    assert "auto-token" not in result.stdout
+    assert "secret" not in result.stdout
+
+
+def test_status_json_checks_credentials_with_course_probe() -> None:
+    result = runner.invoke(cli.app, ["status", "--json"], env=AUTH_ENV)
+
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data == {"authenticated": True, "probe": "courses", "courses_checked": 1}
+    client = FakeClient.instances[-1]
+    assert client.auth == ("zzud", "autologin", "session")
+    assert client.courses_page == 1
+    assert client.courses_limit == 1
+
+
+def test_status_env_credentials_do_not_read_saved_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    def raise_if_loaded() -> StoredCredentials:
+        raise ValueError("should not load")
+
+    monkeypatch.setattr(cli, "load_credentials", raise_if_loaded)
+
+    result = runner.invoke(cli.app, ["status", "--json"], env=AUTH_ENV)
+
+    assert result.exit_code == 0
+    client = FakeClient.instances[-1]
+    assert client.auth == ("zzud", "autologin", "session")
+
+
+def test_status_uses_stored_credentials_when_env_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        cli,
+        "load_credentials",
+        lambda: StoredCredentials("stored-zzud", "stored-auto", "stored-session"),
+    )
+
+    result = runner.invoke(cli.app, ["status", "--json"])
+
+    assert result.exit_code == 0
+    client = FakeClient.instances[-1]
+    assert client.auth == ("stored-zzud", "stored-auto", "stored-session")
+
+
+def test_homeworks_uses_stored_credentials_when_env_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "load_credentials",
+        lambda: StoredCredentials("stored-zzud", "stored-auto", "stored-session"),
+    )
+
+    result = runner.invoke(cli.app, ["homeworks", "--course", "py", "--json"])
+
+    assert result.exit_code == 0
+    client = FakeClient.instances[-1]
+    assert client.auth == ("stored-zzud", "stored-auto", "stored-session")
+
+
+def test_status_missing_credentials_exit_two() -> None:
+    result = runner.invoke(
+        cli.app,
+        ["status"],
+        env={"EDUCODER_ZZUD": "", "EDUCODER_AUTOLOGIN": "", "EDUCODER_SESSION": ""},
+    )
+
+    assert result.exit_code == 2
+    assert "Missing required credentials" in result.stderr
+
+
+def test_status_api_error_exits_one() -> None:
+    FakeClient.raise_api_error = True
+
+    result = runner.invoke(cli.app, ["status"], env=AUTH_ENV)
+
+    assert result.exit_code == 1
+    assert "boom" in result.stderr
 
 
 def test_homeworks_json_outputs_selected_course_and_homeworks() -> None:

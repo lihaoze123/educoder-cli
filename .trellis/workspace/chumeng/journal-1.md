@@ -106,3 +106,37 @@ Implemented Educoder login with persisted credential state, added status command
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Fix Educoder task identifier resolution
+
+**Date**: 2026-05-22
+**Task**: Fix Educoder task identifier resolution
+**Branch**: `main`
+
+### Summary
+
+Fixed task context resolution by falling back to Educoder's shixun_exec endpoint when legacy myshixun lookup lacks game_identifier; added regression tests and documented the contract.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `04139db` | (see git log) |
+| `59af4de` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

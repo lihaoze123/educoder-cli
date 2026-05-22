@@ -38,3 +38,37 @@ Populated backend Trellis specs from the Educoder CLI codebase, documented quali
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: CLI layer commands
+
+**Date**: 2026-05-22
+**Task**: CLI layer commands
+**Branch**: `main`
+
+### Summary
+
+Added stateless Educoder workflow CLI commands for homeworks, task detail, remote code reading, and single-task submission; documented CLI command contracts.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `87f29ba` | (see git log) |
+| `5e2c7df` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

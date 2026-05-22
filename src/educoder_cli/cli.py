@@ -1,10 +1,12 @@
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, ClassVar, NoReturn
 
 import typer
 from rich.console import Console
 from rich.markup import escape
+from rich.panel import Panel
 from rich.table import Table
 
 from educoder_cli import __version__
@@ -16,6 +18,64 @@ from educoder_cli.models import Course, HomeworkCommon, LoginResult, TaskDetail,
 app = typer.Typer(no_args_is_help=True, help="Educoder / 头歌 command line client.")
 console = Console()
 err_console = Console(stderr=True)
+
+
+class _HTMLPlainTextParser(HTMLParser):
+    _BLOCK_TAGS: ClassVar[set[str]] = {
+        "blockquote",
+        "br",
+        "div",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "li",
+        "ol",
+        "p",
+        "pre",
+        "tr",
+        "ul",
+    }
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        normalized = tag.lower()
+        if normalized == "li":
+            self._append_line_break()
+            self._parts.append("- ")
+        elif normalized in self._BLOCK_TAGS:
+            self._append_line_break()
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in self._BLOCK_TAGS:
+            self._append_line_break()
+
+    def handle_data(self, data: str) -> None:
+        self._parts.append(data)
+
+    def get_text(self) -> str:
+        lines = [line.strip() for line in "".join(self._parts).splitlines()]
+        normalized_lines: list[str] = []
+        previous_blank = False
+        for line in lines:
+            if not line:
+                if normalized_lines and not previous_blank:
+                    normalized_lines.append("")
+                previous_blank = True
+                continue
+            normalized_lines.append(line)
+            previous_blank = False
+        return "\n".join(normalized_lines).strip()
+
+    def _append_line_break(self) -> None:
+        if self._parts and not self._parts[-1].endswith("\n"):
+            self._parts.append("\n")
+
 
 ZzudOption = Annotated[
     str | None,
@@ -176,6 +236,13 @@ def _truncate(value: str | None, limit: int = 600) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 1] + "…"
+
+
+def _format_problem_statement(value: str) -> str:
+    parser = _HTMLPlainTextParser()
+    parser.feed(value)
+    parser.close()
+    return parser.get_text() or value.strip()
 
 
 def _test_result_label(value: bool | None) -> str:
@@ -351,7 +418,19 @@ def _render_task_detail(task: TaskDetail, *, title: str = "Task") -> None:
     if task.last_compile_output:
         table.add_row("Last Compile Output", escape(_truncate(task.last_compile_output)))
     console.print(table)
+    _render_problem_statement(task.challenge.task_pass)
     _render_test_sets(task.test_sets)
+
+
+def _render_problem_statement(problem_statement: str) -> None:
+    formatted = _format_problem_statement(problem_statement)
+    if formatted:
+        console.print(
+            Panel(
+                escape(_truncate(formatted, 4000)),
+                title="Task Description",
+            )
+        )
 
 
 def _render_test_sets(test_sets: list[TestSet]) -> None:

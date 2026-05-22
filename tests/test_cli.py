@@ -324,6 +324,23 @@ def test_task_json_outputs_current_task_summary() -> None:
     assert data["task"]["game"]["status_text"] == "通过"
 
 
+def test_task_text_renders_problem_statement() -> None:
+    FakeClient.task_detail = make_task_detail(status=0)
+    FakeClient.task_detail.challenge.task_pass = "<p>实现一个函数。</p><ul><li>输出 ok</li></ul>"
+
+    result = runner.invoke(
+        cli.app,
+        ["task", "--course", "py", "--homework", "42"],
+        env=AUTH_ENV,
+    )
+
+    assert result.exit_code == 0
+    assert "Task Description" in result.stdout
+    assert "实现一个函数。" in result.stdout
+    assert "输出 ok" in result.stdout
+    assert "<p>" not in result.stdout
+
+
 def test_task_text_renders_nullable_test_set_fields() -> None:
     FakeClient.task_detail = make_task_detail(status=0)
     FakeClient.task_detail.test_sets = [

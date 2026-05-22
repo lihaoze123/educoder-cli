@@ -57,6 +57,10 @@ does not put passwords in shell history.
 - Multiple selector matches must raise a local error and show candidates; never
   silently pick the first match.
 - `--json` output must be machine-readable JSON without Rich ANSI highlighting.
+- Text-mode `task` output renders the task summary plus the current challenge
+  problem statement from `TaskDetail.challenge.task_pass` when present. Normalize
+  common HTML markup at the CLI rendering boundary for terminal readability, but
+  keep `--json` output as the stable machine-readable model data.
 - `code` may display remote source code because that is the explicit command
   result; `submit` must not print submitted source code.
 - `submit --file -` reads source from stdin.
@@ -109,6 +113,9 @@ does not put passwords in shell history.
 - Cover JSON output, default Rich/stdout output, credential failure, API failure,
   file overwrite refusal, stdin reading, `--no-wait`, and non-zero failed
   evaluation exits.
+- `task` text-output tests should assert the problem statement renders when
+  `challenge.task_pass` is present and should cover HTML-to-text normalization
+  without changing the `--json` payload shape.
 - Login tests should assert request delegation and save delegation via fakes at
   the CLI layer, and cookie/header/body behavior through `httpx.MockTransport`
   at the client layer.

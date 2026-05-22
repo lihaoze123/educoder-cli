@@ -248,6 +248,21 @@ class EduCoderClient:
             raise ValueError("请先指定 myshixun_identifier")
         return self._get(f"/myshixuns/{mid}.json?zzud={self.zzud}")
 
+    def get_shixun_exec(
+        self,
+        shixun_identifier: str | None = None,
+        homework_common_id: int | None = None,
+    ) -> JsonObject:
+        sid = shixun_identifier or self.shixun_identifier
+        hw_id = homework_common_id or self.homework_common_id
+        if not sid:
+            raise ValueError("请先指定 shixun_identifier")
+        if not hw_id:
+            raise ValueError("请先指定 homework_common_id")
+        return self._get(
+            f"/shixuns/{sid}/shixun_exec.json?homework_common_id={hw_id}&zzud={self.zzud}"
+        )
+
     def get_task_detail(
         self, game_identifier: str | None = None, homework_common_id: int | None = None
     ) -> TaskDetail:
@@ -449,17 +464,26 @@ class EduCoderClient:
         self.homework_common_id = target.homework_id
         self.shixun_identifier = target.shixun_identifier
         self.myshixun_identifier = target.myshixun_identifier
+        self.game_identifier = None
 
-        if target.myshixun_identifier:
-            myshixun_data = self.get_myshixun(target.myshixun_identifier)
-            self.game_identifier = myshixun_data.get("game_identifier", "")
+        self._resolve_game_identifier()
 
         return target
 
-    def get_current_context(self) -> TaskDetail:
+    def _resolve_game_identifier(self) -> None:
+        if self.game_identifier:
+            return
+
         if not self.game_identifier and self.myshixun_identifier:
             data = self.get_myshixun(self.myshixun_identifier)
-            self.game_identifier = data.get("game_identifier", "")
+            self.game_identifier = str(data.get("game_identifier") or "")
+
+        if not self.game_identifier and self.shixun_identifier and self.homework_common_id:
+            data = self.get_shixun_exec(self.shixun_identifier, self.homework_common_id)
+            self.game_identifier = str(data.get("game_identifier") or "")
+
+    def get_current_context(self) -> TaskDetail:
+        self._resolve_game_identifier()
 
         if not self.game_identifier:
             raise ValueError(

@@ -187,6 +187,84 @@ def test_select_homework_raises_on_ambiguous_name_match() -> None:
     assert len(exc_info.value.candidates) == 2
 
 
+def test_select_homework_resolves_game_identifier_from_shixun_exec_fallback() -> None:
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        if request.url.path.endswith("/homework_commons.json"):
+            return httpx.Response(
+                200,
+                json={
+                    "homeworks": [
+                        {
+                            "homework_id": 42,
+                            "name": "实验一",
+                            "shixun_identifier": "shixun-1",
+                            "myshixun_identifier": "my-1",
+                        }
+                    ]
+                },
+            )
+        if request.url.path.endswith("/myshixuns/my-1.json"):
+            return httpx.Response(200, json={"status": 404, "error": "Not Found"})
+        if request.url.path.endswith("/shixuns/shixun-1/shixun_exec.json"):
+            assert request.url.params["homework_common_id"] == "42"
+            return httpx.Response(200, json={"game_identifier": "game-1"})
+        raise AssertionError(f"unexpected request: {request.url}")
+
+    client = make_client(handler)
+    client.course_identifier = "py"
+
+    homework = client.select_homework(42)
+
+    assert homework.homework_id == 42
+    assert client.game_identifier == "game-1"
+    assert seen_paths == [
+        "/api/courses/py/homework_commons.json",
+        "/api/myshixuns/my-1.json",
+        "/api/shixuns/shixun-1/shixun_exec.json",
+    ]
+
+
+def test_select_homework_resets_game_identifier_when_switching_homework() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/homework_commons.json"):
+            return httpx.Response(
+                200,
+                json={
+                    "homeworks": [
+                        {
+                            "homework_id": 1,
+                            "name": "实验一",
+                            "shixun_identifier": "shixun-1",
+                            "myshixun_identifier": None,
+                        },
+                        {
+                            "homework_id": 2,
+                            "name": "实验二",
+                            "shixun_identifier": "shixun-2",
+                            "myshixun_identifier": None,
+                        },
+                    ]
+                },
+            )
+        if request.url.path.endswith("/shixuns/shixun-1/shixun_exec.json"):
+            return httpx.Response(200, json={"game_identifier": "game-1"})
+        if request.url.path.endswith("/shixuns/shixun-2/shixun_exec.json"):
+            return httpx.Response(200, json={"game_identifier": "game-2"})
+        raise AssertionError(f"unexpected request: {request.url}")
+
+    client = make_client(handler)
+    client.course_identifier = "py"
+
+    client.select_homework(1)
+    client.select_homework(2)
+
+    assert client.homework_common_id == 2
+    assert client.game_identifier == "game-2"
+
+
 def test_submit_passes_timeout_to_poll_result(monkeypatch: pytest.MonkeyPatch) -> None:
     client = make_client(lambda _request: httpx.Response(200, json={}))
     client.myshixun_identifier = "my-1"

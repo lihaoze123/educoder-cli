@@ -37,6 +37,37 @@ uv run educoder courses \
   --session ...
 ```
 
+列出课堂中的实验：
+
+```bash
+uv run educoder homeworks --course py
+uv run educoder homeworks --course py --json
+```
+
+查看当前实验关卡详情：
+
+```bash
+uv run educoder task --course py --homework 123
+uv run educoder task --course py --homework "实验一" --json
+```
+
+读取远端代码，默认输出到 stdout；也可以写入本地文件：
+
+```bash
+uv run educoder code --course py --homework 123
+uv run educoder code --course py --homework 123 --output main.py
+uv run educoder code --course py --homework 123 --output main.py --force
+```
+
+提交本地代码。默认等待评测完成；评测失败或超时会以非零退出码结束：
+
+```bash
+uv run educoder submit --course py --homework 123 --file main.py
+cat main.py | uv run educoder submit --course py --homework 123 --file -
+uv run educoder submit --course py --homework 123 --file main.py --no-wait
+uv run educoder submit --course py --homework 123 --file main.py --timeout 60
+```
+
 ## 本地检查
 
 ```bash

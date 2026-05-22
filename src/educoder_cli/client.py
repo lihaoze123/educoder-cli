@@ -1,6 +1,7 @@
 import base64
 import json
 import time
+from collections.abc import Sequence
 from types import TracebackType
 from typing import Any, Self
 
@@ -16,6 +17,38 @@ from educoder_cli.models import Course, HomeworkCommon, TaskDetail
 from educoder_cli.signature import gen_signature
 
 JsonObject = dict[str, Any]
+SelectionCandidate = Course | HomeworkCommon
+
+
+class AmbiguousSelectionError(ValueError):
+    def __init__(
+        self,
+        target: str,
+        query: str | int,
+        candidates: list[SelectionCandidate],
+    ) -> None:
+        self.target = target
+        self.query = query
+        self.candidates = candidates
+        super().__init__(f"{target} 匹配到多个结果: {query}")
+
+
+def _coerce_selector(value: str | int) -> str | int:
+    if isinstance(value, str) and value.isdecimal():
+        return int(value)
+    return value
+
+
+def _single_match(
+    target: str,
+    query: str | int,
+    candidates: Sequence[SelectionCandidate],
+) -> SelectionCandidate | None:
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        raise AmbiguousSelectionError(target, query, list(candidates))
+    return None
 
 
 class EduCoderClient:
@@ -241,37 +274,84 @@ class EduCoderClient:
         return self._post(f"/tasks/{gid}/game_build.json?zzud={self.zzud}", body)
 
     def select_course(self, name_or_id: str | int) -> Course:
+        selector = _coerce_selector(name_or_id)
+        selector_text = str(name_or_id)
         courses = self.get_courses()
-        for course in courses:
-            if isinstance(name_or_id, int) and course.id == name_or_id:
-                self.course_identifier = course.identifier
-                return course
-            if isinstance(name_or_id, str) and (
-                name_or_id in course.name or name_or_id == course.identifier
-            ):
-                self.course_identifier = course.identifier
-                return course
+        if isinstance(selector, int):
+            match = _single_match(
+                "课堂",
+                name_or_id,
+                [course for course in courses if course.id == selector],
+            )
+            if isinstance(match, Course):
+                self.course_identifier = match.identifier
+                return match
+
+        match = _single_match(
+            "课堂",
+            name_or_id,
+            [course for course in courses if course.identifier == selector_text],
+        )
+        if isinstance(match, Course):
+            self.course_identifier = match.identifier
+            return match
+
+        match = _single_match(
+            "课堂",
+            name_or_id,
+            [course for course in courses if course.name == selector_text],
+        )
+        if isinstance(match, Course):
+            self.course_identifier = match.identifier
+            return match
+
+        match = _single_match(
+            "课堂",
+            name_or_id,
+            [course for course in courses if selector_text in course.name],
+        )
+        if isinstance(match, Course):
+            self.course_identifier = match.identifier
+            return match
+
         raise ValueError(f"未找到匹配的课堂: {name_or_id}")
 
     def select_homework(
         self, identifier: int | str, *, course_identifier: str | None = None
     ) -> HomeworkCommon:
+        selector = _coerce_selector(identifier)
+        selector_text = str(identifier)
         if course_identifier is not None:
             self.course_identifier = course_identifier
         homeworks = self.get_homeworks()
-        target = None
-        if isinstance(identifier, int):
-            for homework in homeworks:
-                if homework.homework_id == identifier:
-                    target = homework
-                    break
-        else:
-            for homework in homeworks:
-                if identifier in homework.name:
-                    target = homework
-                    break
+        target: HomeworkCommon | None = None
+        if isinstance(selector, int):
+            match = _single_match(
+                "实验",
+                identifier,
+                [homework for homework in homeworks if homework.homework_id == selector],
+            )
+            if isinstance(match, HomeworkCommon):
+                target = match
 
-        if not target:
+        if target is None and isinstance(identifier, str):
+            match = _single_match(
+                "实验",
+                identifier,
+                [homework for homework in homeworks if homework.name == selector_text],
+            )
+            if isinstance(match, HomeworkCommon):
+                target = match
+            else:
+                match = _single_match(
+                    "实验",
+                    identifier,
+                    [homework for homework in homeworks if selector_text in homework.name],
+                )
+                if isinstance(match, HomeworkCommon):
+                    target = match
+
+        if target is None:
             raise ValueError(f"未找到匹配的实验: {identifier}")
 
         self.homework_common_id = target.homework_id
@@ -296,7 +376,14 @@ class EduCoderClient:
 
         return self.get_task_detail()
 
-    def submit(self, code: str, *, wait: bool = True, poll_interval: float = 2.0) -> JsonObject:
+    def submit(
+        self,
+        code: str,
+        *,
+        wait: bool = True,
+        poll_interval: float = 2.0,
+        timeout: int = 30,
+    ) -> JsonObject:
         task = self.get_current_context()
 
         save_resp = self.save_code(
@@ -330,7 +417,7 @@ class EduCoderClient:
         if not wait:
             return {"task_detail": task, "passed": None, "test_sets": []}
 
-        return self._poll_result(poll_interval)
+        return self._poll_result(poll_interval, timeout)
 
     def _poll_result(self, interval: float = 2.0, timeout: int = 30) -> JsonObject:
         deadline = time.monotonic() + timeout

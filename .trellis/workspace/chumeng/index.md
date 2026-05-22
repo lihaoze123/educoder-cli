@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-05-22
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~176 | Active |
+| `journal-1.md` | ~209 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-05-22 | Document uv tool install command | `333c03f` | `main` |
 | 5 | 2026-05-22 | Handle nullable Educoder test output | `4886335`, `c922a79` | `main` |
 | 4 | 2026-05-22 | Fix Educoder task identifier resolution | `04139db`, `59af4de` | `main` |
 | 3 | 2026-05-22 | Support persistent Educoder login | `98876a5`, `75ab4aa` | `main` |

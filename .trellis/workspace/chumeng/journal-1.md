@@ -174,3 +174,36 @@ Fixed task text rendering for unstarted Educoder test sets by preserving nullabl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Document uv tool install command
+
+**Date**: 2026-05-22
+**Task**: Document uv tool install command
+**Branch**: `main`
+
+### Summary
+
+Updated README with a uv tool install command for installing educoder-cli directly from GitHub.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `333c03f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

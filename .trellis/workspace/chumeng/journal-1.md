@@ -207,3 +207,36 @@ Updated README with a uv tool install command for installing educoder-cli direct
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Render task problem statement
+
+**Date**: 2026-05-22
+**Task**: Render task problem statement
+**Branch**: `main`
+
+### Summary
+
+Updated task text output to render challenge problem statements, added regression coverage, and documented the CLI output contract.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ecae982` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

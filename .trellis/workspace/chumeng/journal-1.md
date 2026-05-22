@@ -240,3 +240,36 @@ Updated task text output to render challenge problem statements, added regressio
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Render task descriptions as Markdown
+
+**Date**: 2026-05-22
+**Task**: Render task descriptions as Markdown
+**Branch**: `main`
+
+### Summary
+
+Changed task text output to render challenge descriptions with Rich Markdown, strip unsupported TOC markers, preserve HTML fallback behavior, and added regression coverage.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ab1e91d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

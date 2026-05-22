@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
+- **Total Sessions**: 10
 - **Last Active**: 2026-05-22
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~306 | Active |
+| `journal-1.md` | ~339 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-05-22 | Add EduCoder CLI skill | `e56e6bd` | `main` |
 | 9 | 2026-05-22 | Created EduCoder solve-task skill | - | `main` |
 | 8 | 2026-05-22 | Render task descriptions as Markdown | `ab1e91d` | `main` |
 | 7 | 2026-05-22 | Render task problem statement | `ecae982` | `main` |

@@ -304,3 +304,36 @@ Validated a real read-only educoder-cli task path and created the educoder-solve
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Add EduCoder CLI skill
+
+**Date**: 2026-05-22
+**Task**: Add EduCoder CLI skill
+**Branch**: `main`
+
+### Summary
+
+Added the project-distributed educoder-cli skill, documented GitHub-based skill installation, and validated skill discovery plus project checks.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e56e6bd` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

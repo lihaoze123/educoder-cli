@@ -27,6 +27,7 @@ patterns already demonstrated in source and tests.
 | Guide | Description |
 |-------|-------------|
 | [Directory Structure](./directory-structure.md) | Source layout, module ownership, command/client/model boundaries |
+| [CLI Command Guidelines](./cli-command-guidelines.md) | Typer command signatures, stateless workflow contracts, CLI validation behavior |
 | [Database Guidelines](./database-guidelines.md) | Current no-database stance and persistence rules |
 | [Error Handling](./error-handling.md) | Exception taxonomy, API error conversion, CLI exit behavior |
 | [Quality Guidelines](./quality-guidelines.md) | Tooling, tests, typing, review expectations |

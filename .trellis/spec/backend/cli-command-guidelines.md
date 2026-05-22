@@ -149,3 +149,92 @@ def submit(...):
 
 The CLI selects context, delegates workflow behavior to the client, and renders
 the result.
+
+## Scenario: Shixun Homework Task Context Resolution
+
+### 1. Scope / Trigger
+
+Use this contract when changing how `task`, `code`, or `submit` resolve the
+selected shixun homework into a task `game_identifier`.
+
+### 2. Signatures
+
+Client methods own the resolution flow:
+
+```python
+EduCoderClient.select_homework(identifier, *, course_identifier=None)
+EduCoderClient.get_current_context()
+EduCoderClient.get_shixun_exec(shixun_identifier=None, homework_common_id=None)
+```
+
+Current Educoder launch API:
+
+```text
+GET /api/shixuns/{shixun_identifier}/shixun_exec.json?homework_common_id={id}&zzud={zzud}
+```
+
+### 3. Contracts
+
+- `select_homework()` sets `homework_common_id`, `shixun_identifier`,
+  `myshixun_identifier`, and a fresh `game_identifier` for the selected homework.
+- When switching homework on the same client instance, reset any previous
+  `game_identifier` before resolving the new selection.
+- Prefer existing `myshixun_identifier` resolution when it returns
+  `game_identifier`, but fall back to `shixun_exec` because the legacy
+  `/myshixuns/{id}.json` endpoint may return a 404 JSON payload.
+- `shixun_exec` success is a loose JSON object containing `game_identifier`.
+  Keep it typed as `JsonObject`; do not add a dataclass unless the response
+  shape becomes stable and broader than this field.
+- CLI commands must not build this endpoint directly.
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected behavior |
+|-----------|-------------------|
+| No selected/explicit `shixun_identifier` | `get_shixun_exec()` raises `ValueError("请先指定 shixun_identifier")` |
+| No selected/explicit `homework_common_id` | `get_shixun_exec()` raises `ValueError("请先指定 homework_common_id")` |
+| Legacy myshixun lookup returns no `game_identifier` | Try `shixun_exec` before failing |
+| Both resolution paths return no `game_identifier` | `get_current_context()` raises the existing missing-game `ValueError` |
+| Remote auth/signature/network failure | Let `_request()` convert or propagate the existing `EduCoderAPIError` family |
+
+### 5. Good/Base/Bad Cases
+
+- Good: `task --course X --homework Y` selects the homework, resolves
+  `game_identifier` through the client, then calls `get_task_detail()`.
+- Base: a stale `/myshixuns/{id}.json` response with `status: 404` is treated as
+  "no game id here" and falls through to `shixun_exec`.
+- Bad: reusing a previous homework's `game_identifier` after
+  `select_homework()` is called again.
+- Bad: duplicating the `shixun_exec` URL in `cli.py` or tests that fake the CLI
+  instead of testing `EduCoderClient`.
+
+### 6. Tests Required
+
+- Client test with `httpx.MockTransport` where `/myshixuns/{id}.json` returns
+  a stale 404 JSON payload and `shixun_exec` returns `game_identifier`.
+- Client test that selecting homework A then homework B on the same client
+  updates `game_identifier` to homework B's value.
+- CLI tests can keep using a fake client; endpoint details belong in
+  `tests/test_client.py`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```python
+def select_homework(...):
+    # Leaves a previous task context in place when the next homework is selected.
+    if self.game_identifier:
+        return target
+```
+
+#### Correct
+
+```python
+def select_homework(...):
+    self.homework_common_id = target.homework_id
+    self.shixun_identifier = target.shixun_identifier
+    self.myshixun_identifier = target.myshixun_identifier
+    self.game_identifier = None
+    self._resolve_game_identifier()
+```

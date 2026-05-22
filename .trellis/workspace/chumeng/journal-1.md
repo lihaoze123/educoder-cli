@@ -140,3 +140,37 @@ Fixed task context resolution by falling back to Educoder's shixun_exec endpoint
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Handle nullable Educoder test output
+
+**Date**: 2026-05-22
+**Task**: Handle nullable Educoder test output
+**Branch**: `main`
+
+### Summary
+
+Fixed task text rendering for unstarted Educoder test sets by preserving nullable execution fields, rendering unknown values as blank cells, adding regression tests, documenting the nullable test-set contract, and reinstalling the uv tool entry point.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4886335` | (see git log) |
+| `c922a79` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

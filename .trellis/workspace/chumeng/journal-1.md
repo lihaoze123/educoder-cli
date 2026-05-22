@@ -72,3 +72,37 @@ Added stateless Educoder workflow CLI commands for homeworks, task detail, remot
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Support persistent Educoder login
+
+**Date**: 2026-05-22
+**Task**: Support persistent Educoder login
+**Branch**: `main`
+
+### Summary
+
+Implemented Educoder login with persisted credential state, added status command, updated tests/docs, and documented credential persistence constraints.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `98876a5` | (see git log) |
+| `75ab4aa` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

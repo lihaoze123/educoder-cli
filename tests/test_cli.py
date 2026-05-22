@@ -341,6 +341,36 @@ def test_task_text_renders_problem_statement() -> None:
     assert "<p>" not in result.stdout
 
 
+def test_task_text_renders_markdown_problem_statement() -> None:
+    FakeClient.task_detail = make_task_detail(status=0)
+    FakeClient.task_detail.challenge.task_pass = "\n".join(
+        [
+            "[TOC]",
+            "---",
+            "### 任务描述",
+            "",
+            "请完成查询。",
+            "",
+            "- 输出姓名",
+            "- 输出成绩",
+        ]
+    )
+
+    result = runner.invoke(
+        cli.app,
+        ["task", "--course", "py", "--homework", "42"],
+        env=AUTH_ENV,
+    )
+
+    assert result.exit_code == 0
+    assert "Task Description" in result.stdout
+    assert "任务描述" in result.stdout
+    assert "请完成查询。" in result.stdout
+    assert "输出姓名" in result.stdout
+    assert "###" not in result.stdout
+    assert "[TOC]" not in result.stdout
+
+
 def test_task_text_renders_nullable_test_set_fields() -> None:
     FakeClient.task_detail = make_task_detail(status=0)
     FakeClient.task_detail.test_sets = [

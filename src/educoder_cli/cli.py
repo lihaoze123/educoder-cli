@@ -1,3 +1,4 @@
+import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -5,6 +6,7 @@ from typing import Annotated, Any, ClassVar, NoReturn
 
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
@@ -18,6 +20,8 @@ from educoder_cli.models import Course, HomeworkCommon, LoginResult, TaskDetail,
 app = typer.Typer(no_args_is_help=True, help="Educoder / 头歌 command line client.")
 console = Console()
 err_console = Console(stderr=True)
+
+HTML_TAG_PATTERN = re.compile(r"</?[A-Za-z][^>]*>")
 
 
 class _HTMLPlainTextParser(HTMLParser):
@@ -239,10 +243,23 @@ def _truncate(value: str | None, limit: int = 600) -> str:
 
 
 def _format_problem_statement(value: str) -> str:
+    normalized = value.strip()
+    if HTML_TAG_PATTERN.search(normalized):
+        normalized = _html_to_plain_text(normalized)
+    return _strip_toc_marker(normalized)
+
+
+def _html_to_plain_text(value: str) -> str:
     parser = _HTMLPlainTextParser()
     parser.feed(value)
     parser.close()
     return parser.get_text() or value.strip()
+
+
+def _strip_toc_marker(value: str) -> str:
+    return "\n".join(
+        line for line in value.splitlines() if line.strip().casefold() != "[toc]"
+    ).strip()
 
 
 def _test_result_label(value: bool | None) -> str:
@@ -427,7 +444,7 @@ def _render_problem_statement(problem_statement: str) -> None:
     if formatted:
         console.print(
             Panel(
-                escape(_truncate(formatted, 4000)),
+                Markdown(_truncate(formatted, 4000)),
                 title="Task Description",
             )
         )

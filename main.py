@@ -1,5 +1,8 @@
-def main():
-    print("Hello from educoder-cli!")
+from educoder_cli.cli import app
+
+
+def main() -> None:
+    app()
 
 
 if __name__ == "__main__":

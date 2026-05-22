@@ -1,7 +1,58 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
 [project]
 name = "educoder-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "A CLI for Educoder / 头歌 API workflows"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+    "rich>=15.0.0",
+    "typer>=0.25.1",
+]
+
+[project.optional-dependencies]
+llm = [
+    "litellm>=1.85.1",
+]
+
+[project.scripts]
+educoder = "educoder_cli.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "ruff>=0.14",
+    "ty>=0.0.18",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/educoder_cli"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["RUF001"]
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"
+
+[tool.ty.environment]
+python-platform = "linux"
+python-version = "3.13"
+root = ["./src"]
+
+[tool.ty.src]
+include = ["src", "tests"]

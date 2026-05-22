@@ -1,0 +1,51 @@
+from educoder_cli.models import Course, HomeworkCommon, TaskDetail
+
+
+def test_course_from_dict_uses_defaults() -> None:
+    course = Course.from_dict({"id": 1, "name": "Python", "identifier": "py"})
+
+    assert course.id == 1
+    assert course.name == "Python"
+    assert course.identifier == "py"
+    assert course.school == ""
+    assert course.is_accessible is True
+
+
+def test_homework_from_dict_parses_optional_identifier() -> None:
+    homework = HomeworkCommon.from_dict(
+        {
+            "homework_id": 42,
+            "name": "实验一",
+            "shixun_identifier": "shixun-1",
+            "myshixun_identifier": None,
+            "status": ["进行中"],
+        }
+    )
+
+    assert homework.homework_id == 42
+    assert homework.myshixun_identifier is None
+    assert homework.status == ["进行中"]
+    assert homework.challenge_count == 0
+
+
+def test_task_detail_from_dict_parses_nested_models() -> None:
+    detail = TaskDetail.from_dict(
+        {
+            "game": {"id": 10, "identifier": "game-1", "status": 2},
+            "challenge": {"id": 20, "path": "main.py；"},
+            "user": {"user_id": 30, "login": "alice"},
+            "test_sets": [{"result": True, "output": "ok"}],
+            "shixun_environments": [{"shixun_environment_id": 40, "name": "Python"}],
+            "homework_common_id": 50,
+            "next_game": "game-2",
+        }
+    )
+
+    assert detail.game.id == 10
+    assert detail.game.status == 2
+    assert detail.challenge.clean_path == "main.py"
+    assert detail.user.login == "alice"
+    assert detail.test_sets[0].result is True
+    assert detail.shixun_environments[0].shixun_environment_id == 40
+    assert detail.homework_common_id == 50
+    assert detail.next_game == "game-2"
